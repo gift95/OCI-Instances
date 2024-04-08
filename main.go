@@ -51,7 +51,7 @@ import (
 )
 
 const (
-	defConfigFilePath = "./oci-help.ini"
+	defConfigFilePath = "./config.ini"
 	IPsFilePrefix     = "IPs"
 )
 
@@ -221,7 +221,7 @@ func listOracleAccount() {
 
 	//getUsers()
 
-	showMainMenu()
+	listLaunchInstanceTemplates()
 }
 
 func initVar(oracleSec *ini.Section) (err error) {
@@ -810,64 +810,32 @@ func bootvolumeDetails(bootVolumeId *string) {
 }
 
 func listLaunchInstanceTemplates() {
-	var instanceSections []*ini.Section
-	instanceSections = append(instanceSections, instanceBaseSection.ChildSections()...)
-	instanceSections = append(instanceSections, oracleSection.ChildSections()...)
-	if len(instanceSections) == 0 {
-		fmt.Printf("\033[1;31m未找到实例模版, 回车返回上一级菜单.\033[0m")
-		fmt.Scanln()
-		showMainMenu()
-		return
-	}
+     var instanceSections []*ini.Section
+     instanceSections = append(instanceSections, instanceBaseSection.ChildSections()...)
+     instanceSections = append(instanceSections, oracleSection.ChildSections()...)
+     if len(instanceSections) == 0 {
+          fmt.Printf("033[1;31m未找到实例模版, 回车返回上一级菜单.033[0m")
+          fmt.Scanln()
+          showMainMenu()
+          return
+     }
 
-	for {
-		fmt.Printf("\n\033[1;32m选择对应的实例模版开始创建实例\033[0m \n(当前账号: %s)\n\n", oracleSectionName)
-		w := new(tabwriter.Writer)
-		w.Init(os.Stdout, 4, 8, 1, '\t', 0)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", "序号", "配置", "CPU个数", "内存(GB)")
-		for i, instanceSec := range instanceSections {
-			cpu := instanceSec.Key("cpus").Value()
-			if cpu == "" {
-				cpu = "-"
-			}
-			memory := instanceSec.Key("memoryInGBs").Value()
-			if memory == "" {
-				memory = "-"
-			}
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t\n", i+1, instanceSec.Key("shape").Value(), cpu, memory)
-		}
-		w.Flush()
-		fmt.Printf("\n")
-		var input string
-		var index int
-		for {
-			fmt.Print("请输入需要创建的实例的序号: ")
-			_, err := fmt.Scanln(&input)
-			if err != nil {
-				showMainMenu()
-				return
-			}
-			index, _ = strconv.Atoi(input)
-			if 0 < index && index <= len(instanceSections) {
-				break
-			} else {
-				input = ""
-				index = 0
-				fmt.Printf("\033[1;31m错误! 请输入正确的序号\033[0m\n")
-			}
-		}
-
-		instanceSection := instanceSections[index-1]
-		instance = Instance{}
-		err := instanceSection.MapTo(&instance)
-		if err != nil {
-			printlnErr("解析实例模版参数失败", err.Error())
-			continue
-		}
-
-		LaunchInstances(availabilityDomains)
-	}
-
+     // 自动选择第二个实例模版
+     if len(instanceSections) > 1 {
+          instanceSection := instanceSections[1]
+          instance = Instance{}
+          err := instanceSection.MapTo(&instance)
+          if err != nil {
+               printlnErr("解析实例模版参数失败", err.Error())
+               return
+          }
+          LaunchInstances(availabilityDomains)
+     } else {
+          fmt.Printf("033[1;31m只有一个实例模版可用, 回车返回上一级菜单.033[0m")
+          fmt.Scanln()
+          showMainMenu()
+          return
+     }
 }
 
 func multiBatchLaunchInstances() {
