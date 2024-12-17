@@ -1,24 +1,24 @@
 /*
-  甲骨文云API文档
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/
+甲骨文云API文档
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/
 
-  实例:
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Instance/
-  VCN:
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Vcn/
-  Subnet:
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Subnet/
-  VNIC:
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Vnic/
-  VnicAttachment:
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/VnicAttachment/
-  私有IP
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/PrivateIp/
-  公共IP
-  https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/PublicIp/
+实例:
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Instance/
+VCN:
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Vcn/
+Subnet:
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Subnet/
+VNIC:
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/Vnic/
+VnicAttachment:
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/VnicAttachment/
+私有IP
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/PrivateIp/
+公共IP
+https://docs.oracle.com/en-us/iaas/api/#/en/iaas/20160918/PublicIp/
 
-  获取可用性域
-  https://docs.oracle.com/en-us/iaas/api/#/en/identity/20160918/AvailabilityDomain/ListAvailabilityDomains
+获取可用性域
+https://docs.oracle.com/en-us/iaas/api/#/en/identity/20160918/AvailabilityDomain/ListAvailabilityDomains
 */
 package main
 
@@ -86,6 +86,7 @@ type Oracle struct {
 	Region       string `ini:"region"`
 	Key_file     string `ini:"key_file"`
 	Key_password string `ini:"key_password"`
+	tenant       string `ini:"tenant"`
 }
 
 type Instance struct {
@@ -810,32 +811,32 @@ func bootvolumeDetails(bootVolumeId *string) {
 }
 
 func listLaunchInstanceTemplates() {
-     var instanceSections []*ini.Section
-     instanceSections = append(instanceSections, instanceBaseSection.ChildSections()...)
-     instanceSections = append(instanceSections, oracleSection.ChildSections()...)
-     if len(instanceSections) == 0 {
-          fmt.Printf("033[1;31m未找到实例模版, 回车返回上一级菜单.033[0m")
-          fmt.Scanln()
-          showMainMenu()
-          return
-     }
+	var instanceSections []*ini.Section
+	instanceSections = append(instanceSections, instanceBaseSection.ChildSections()...)
+	instanceSections = append(instanceSections, oracleSection.ChildSections()...)
+	if len(instanceSections) == 0 {
+		fmt.Printf("033[1;31m未找到实例模版, 回车返回上一级菜单.033[0m")
+		fmt.Scanln()
+		showMainMenu()
+		return
+	}
 
-     // 自动选择第二个实例模版
-     if len(instanceSections) > 1 {
-          instanceSection := instanceSections[1]
-          instance = Instance{}
-          err := instanceSection.MapTo(&instance)
-          if err != nil {
-               printlnErr("解析实例模版参数失败", err.Error())
-               return
-          }
-          LaunchInstances(availabilityDomains)
-     } else {
-          fmt.Printf("033[1;31m只有一个实例模版可用, 回车返回上一级菜单.033[0m")
-          fmt.Scanln()
-          showMainMenu()
-          return
-     }
+	// 自动选择第二个实例模版
+	if len(instanceSections) > 1 {
+		instanceSection := instanceSections[1]
+		instance = Instance{}
+		err := instanceSection.MapTo(&instance)
+		if err != nil {
+			printlnErr("解析实例模版参数失败", err.Error())
+			return
+		}
+		LaunchInstances(availabilityDomains)
+	} else {
+		fmt.Printf("033[1;31m只有一个实例模版可用, 回车返回上一级菜单.033[0m")
+		fmt.Scanln()
+		showMainMenu()
+		return
+	}
 }
 
 func multiBatchLaunchInstances() {
@@ -1096,7 +1097,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 	printf("\033[1;36m[%s] 开始创建 %s 实例, OCPU: %g 内存: %g 引导卷: %g \033[0m\n", oracleSectionName, *shape.Shape, *shape.Ocpus, *shape.MemoryInGBs, bootVolumeSize)
 	if EACH {
 		text := fmt.Sprintf("正在尝试创建第 %d 个实例...⏳\n区域: %s\n实例配置: %s\nOCPU计数: %g\n内存(GB): %g\n引导卷(GB): %g\n创建个数: %d", pos+1, oracle.Region, *shape.Shape, *shape.Ocpus, *shape.MemoryInGBs, bootVolumeSize, sum)
-		_, err := sendMessage("", text)
+		_, err := sendMessage(oracleSectionName, text)
 		if err != nil {
 			printlnErr("Telegram 消息提醒发送失败", err.Error())
 		}
@@ -1142,7 +1143,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 			var text string
 			if EACH {
 				text = fmt.Sprintf("第 %d 个实例抢到了🎉, 正在启动中请稍等...⌛️\n区域: %s\n实例名称: %s\n公共IP: 获取中...⏳\n可用性域:%s\n实例配置: %s\nOCPU计数: %g\n内存(GB): %g\n引导卷(GB): %g\n创建个数: %d\n尝试次数: %d\n耗时: %s", pos+1, oracle.Region, *createResp.Instance.DisplayName, *createResp.Instance.AvailabilityDomain, *shape.Shape, *shape.Ocpus, *shape.MemoryInGBs, bootVolumeSize, sum, runTimes, duration)
-				msg, msgErr = sendMessage("", text)
+				msg, msgErr = sendMessage(oracleSectionName, text)
 			}
 			// 获取实例公共IP
 			var strIps string
@@ -1157,9 +1158,9 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 			}
 			if EACH {
 				if msgErr != nil {
-					sendMessage("", text)
+					sendMessage(oracleSectionName, text)
 				} else {
-					editMessage(msg.MessageId, "", text)
+					editMessage(msg.MessageId, oracleSectionName, text)
 				}
 			}
 
@@ -1194,7 +1195,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 				printf("\033[1;31m[%s] 第 %d 个实例创建失败了❌, 错误信息: \033[0m%s\n", oracleSectionName, pos+1, errInfo)
 				if EACH {
 					text := fmt.Sprintf("第 %d 个实例创建失败了❌\n错误信息: %s\n区域: %s\n可用性域: %s\n实例配置: %s\nOCPU计数: %g\n内存(GB): %g\n引导卷(GB): %g\n创建个数: %d\n尝试次数: %d\n耗时:%s", pos+1, errInfo, oracle.Region, *adName, *shape.Shape, *shape.Ocpus, *shape.MemoryInGBs, bootVolumeSize, sum, runTimes, duration)
-					sendMessage("", text)
+					sendMessage(oracleSectionName, text)
 				}
 
 				SKIP_RETRY = true
@@ -1288,7 +1289,7 @@ func LaunchInstances(ads []identity.AvailabilityDomain) (sum, num int32) {
 
 		if pos < sum && EACH {
 			text := fmt.Sprintf("正在尝试创建第 %d 个实例...⏳\n区域: %s\n实例配置: %s\nOCPU计数: %g\n内存(GB): %g\n引导卷(GB): %g\n创建个数: %d", pos+1, oracle.Region, *shape.Shape, *shape.Ocpus, *shape.MemoryInGBs, bootVolumeSize, sum)
-			sendMessage("", text)
+			sendMessage(oracleSectionName, text)
 		}
 	}
 	return
